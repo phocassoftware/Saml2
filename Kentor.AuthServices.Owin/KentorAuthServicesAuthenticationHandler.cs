@@ -18,7 +18,8 @@ namespace Kentor.AuthServices.Owin
     {
         protected async override Task<AuthenticationTicket> AuthenticateCoreAsync()
         {
-            var acsPath = new PathString(Options.SPOptions.ModulePath)
+            var authServicesOptions = AuthServicesOptions;
+            var acsPath = new PathString(authServicesOptions.SPOptions.ModulePath)
                 .Add(new PathString("/" + CommandFactory.AcsCommandName));
 
             if (Request.Path != acsPath)
@@ -30,7 +31,7 @@ namespace Kentor.AuthServices.Owin
             try
             {
                 var result = CommandFactory.GetCommand(CommandFactory.AcsCommandName)
-                    .Run(httpRequestData, Options);
+                    .Run(httpRequestData, authServicesOptions);
 
                 if (!result.HandledResult)
                 {
@@ -60,6 +61,7 @@ namespace Kentor.AuthServices.Owin
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA2204:Literals should be spelled correctly", MessageId = "ReturnUrl")]
         private AuthenticationTicket CreateErrorAuthenticationTicket(HttpRequestData httpRequestData, Exception ex)
         {
+            var authServicesOptions = AuthServicesOptions;
             AuthenticationProperties authProperties = null;
             if (httpRequestData.StoredRequestState != null)
             {
@@ -71,11 +73,11 @@ namespace Kentor.AuthServices.Owin
             }
             else
             {
-                var redirectUrl = Options.SPOptions.ReturnUrl;
+                var redirectUrl = authServicesOptions.SPOptions.ReturnUrl;
 
                 if (redirectUrl == null)
                 {
-                    Options.SPOptions.Logger.WriteError(
+                    authServicesOptions.SPOptions.Logger.WriteError(
                         "An error occurred and no request state with a return url is available. " +
                         "The fallback behavior is to redirect to the location configured in " +
                         "SPOptions.ReturnUrl. However, that is null so a redirect is done to the " +
@@ -97,7 +99,7 @@ namespace Kentor.AuthServices.Owin
                 ? " The received SAML data is\n" + ex.Data["Saml2Response"]
                 : "";
 
-            Options.SPOptions.Logger.WriteError("Saml2 Authentication failed." + samlResponse, ex);
+            authServicesOptions.SPOptions.Logger.WriteError("Saml2 Authentication failed." + samlResponse, ex);
             return new MultipleIdentityAuthenticationTicket(
                 Enumerable.Empty<ClaimsIdentity>(),
                 authProperties);
@@ -136,7 +138,7 @@ namespace Kentor.AuthServices.Owin
                         idp,
                         redirectUri,
                         await Context.ToHttpRequestData(Options.DataProtector.Unprotect),
-                        Options,
+                        AuthServicesOptions,
                         challenge.Properties.Dictionary);
 
                     if (!result.HandledResult)
@@ -149,9 +151,11 @@ namespace Kentor.AuthServices.Owin
 
         protected async override Task ApplyResponseGrantAsync()
         {
+            var authServicesOptions = AuthServicesOptions;
+
             // Automatically sign out, even if passive because passive sign in and auto sign out
             // is typically most common scenario. Unless strict compatibility is set.
-            var mode = Options.SPOptions.Compatibility.StrictOwinAuthenticationMode ?
+            var mode = authServicesOptions.SPOptions.Compatibility.StrictOwinAuthenticationMode ?
                 Options.AuthenticationMode : AuthenticationMode.Active;
 
             var revoke = Helper.LookupSignOut(Options.AuthenticationType, mode);
@@ -159,7 +163,7 @@ namespace Kentor.AuthServices.Owin
             if (revoke != null)
             {
                 var request = await Context.ToHttpRequestData(Options.DataProtector.Unprotect);
-                var urls = new AuthServicesUrls(request, Options);
+                var urls = new AuthServicesUrls(request, authServicesOptions);
 
                 string redirectUrl = revoke.Properties.RedirectUri;
                 if (string.IsNullOrEmpty(redirectUrl))
@@ -174,7 +178,7 @@ namespace Kentor.AuthServices.Owin
                     }
                 }
 
-                var result = LogoutCommand.Run(request, redirectUrl, Options);
+                var result = LogoutCommand.Run(request, redirectUrl, authServicesOptions);
 
                 if (!result.HandledResult)
                 {
@@ -187,7 +191,8 @@ namespace Kentor.AuthServices.Owin
 
         public override async Task<bool> InvokeAsync()
         {
-            var authServicesPath = new PathString(Options.SPOptions.ModulePath);
+            var authServicesOptions = AuthServicesOptions;
+            var authServicesPath = new PathString(authServicesOptions.SPOptions.ModulePath);
             PathString remainingPath;
 
             if (Request.Path.StartsWithSegments(authServicesPath, out remainingPath))
@@ -210,7 +215,7 @@ namespace Kentor.AuthServices.Owin
                 try
                 {
                     var result = CommandFactory.GetCommand(remainingPath.Value)
-                        .Run(await Context.ToHttpRequestData(Options.DataProtector.Unprotect), Options);
+                        .Run(await Context.ToHttpRequestData(Options.DataProtector.Unprotect), authServicesOptions);
 
                     if (!result.HandledResult)
                     {
@@ -221,7 +226,7 @@ namespace Kentor.AuthServices.Owin
                 }
                 catch(Exception ex)
                 {
-                    Options.SPOptions.Logger.WriteError("Error in AuthServices for " + Request.Path, ex);
+                    authServicesOptions.SPOptions.Logger.WriteError("Error in AuthServices for " + Request.Path, ex);
                     throw;
                 }
             }
@@ -254,6 +259,30 @@ namespace Kentor.AuthServices.Owin
                 externalLogutNameIdClaim.Value,
                 externalLogutNameIdClaim.ValueType,
                 externalLogutNameIdClaim.Issuer));
+        }
+
+        private IOptions AuthServicesOptions
+        {
+            get
+            {
+                object objConfigID = null;
+                Context.Environment.TryGetValue("KentorAuthServices.configID", out objConfigID);
+                var configID = objConfigID as String;
+                if (configID == null)
+                {
+                    return Options;
+                }
+
+                IOptions options;
+                Options.ConfigOptions.TryGetValue(configID, out options);
+
+                if (options == null)
+                {
+                    return Options;
+                }
+
+                return options;
+            }
         }
     }
 }

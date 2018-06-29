@@ -157,5 +157,16 @@ namespace Kentor.AuthServices.Configuration
                 dictionary.Remove(idp);
             }
         }
+
+        /// <summary>
+        /// Clears the entire IDP dictionary.
+        /// </summary>
+        public void Clear()
+        {
+            lock (dictionary)
+            {
+                dictionary.Clear();
+            }
+        }
     }
 }

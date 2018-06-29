@@ -1,6 +1,15 @@
 ﻿using Kentor.AuthServices.Configuration;
+using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.DataProtection;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IdentityModel.Configuration;
+using System.IdentityModel.Metadata;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Kentor.AuthServices.Owin
 {
@@ -41,6 +50,19 @@ namespace Kentor.AuthServices.Owin
         /// to be picked up by the external cookie authentication middleware that persists the identity in a cookie.
         /// </summary>
         public string SignInAsAuthenticationType { get; set; }
+
+        private readonly Dictionary<string, IOptions> configOptions = new Dictionary<string, IOptions>();
+
+        /// <summary>
+        /// Dictionary of options per configuration in a multi-configuration, and/or multi-service-provider environment.
+        /// </summary>
+        public Dictionary<string, IOptions> ConfigOptions
+        {
+            get
+            {
+                return configOptions;
+            }
+        }
 
         /// <summary>
         /// Options for the service provider's behaviour; i.e. everything except
