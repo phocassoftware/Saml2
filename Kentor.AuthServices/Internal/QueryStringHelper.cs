@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Kentor.AuthServices.Internal
 {
@@ -19,6 +16,11 @@ namespace Kentor.AuthServices.Internal
                 throw new InvalidOperationException();
             }
 
+            if (paramName == null)
+            {
+                throw new ArgumentNullException(nameof(paramName));
+            }
+
             var parts = relativeUri.ToString().Split('?');
             var relativeUrl = parts.First();
             var queryParams = new Dictionary<string, string>();
@@ -28,14 +30,14 @@ namespace Kentor.AuthServices.Internal
                 var existingParams = ParseQueryString(parts.Last());
                 foreach (var param in existingParams)
                 {
-                    queryParams.Add(param.Key, existingParams[param.Key].SingleOrDefault());
+                    var val = existingParams[param.Key].SingleOrDefault();
+                    queryParams[Uri.EscapeDataString(param.Key)] = val != null ? Uri.EscapeDataString(val) : String.Empty;
                 }
             }
 
-            queryParams[Uri.EscapeUriString(paramName)] = paramValue; // TODO: Under what circumstance is it necessary to URI encode param value??
+            queryParams[Uri.EscapeDataString(paramName)] = Uri.EscapeDataString(paramValue);
 
-            var url = queryParams.Count() == 0 ? relativeUrl :
-                relativeUrl + "?" + string.Join("&", queryParams.Select(q => q.Key + "=" + q.Value).ToList());
+            var url = relativeUrl + "?" + String.Join("&", queryParams.Select(q => q.Key + "=" + q.Value).ToList());
             return new Uri(url, UriKind.Relative);
         }
 
