@@ -53,9 +53,14 @@ namespace Kentor.AuthServices.WebSso
                     var samlResponse = new Saml2Response(unbindResult.Data, request.StoredRequestState?.MessageId);
 
                     var result = ProcessResponse(options, samlResponse, request.StoredRequestState);
-                    if(unbindResult.RelayState != null)
+                    if (unbindResult.RelayState != null)
                     {
                         result.ClearCookieName = "Kentor." + unbindResult.RelayState;
+
+                        if (request.StoredRequestState == null && !string.IsNullOrWhiteSpace(unbindResult.RelayState))
+                        {
+                            result.Location = QueryStringHelper.AddQueryParamToRelativeUri(result.Location, "ReturnUrl", unbindResult.RelayState);
+                        }
                     }
                     options.Notifications.AcsCommandResultCreated(result, samlResponse);
                     return result;

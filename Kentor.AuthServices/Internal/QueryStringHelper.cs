@@ -12,8 +12,35 @@ namespace Kentor.AuthServices.Internal
     /// </summary>
     internal static class QueryStringHelper
     {
+        public static Uri AddQueryParamToRelativeUri(Uri relativeUri, string paramName, string paramValue)
+        {
+            if (relativeUri.IsAbsoluteUri)
+            {
+                throw new InvalidOperationException();
+            }
+
+            var parts = relativeUri.ToString().Split('?');
+            var relativeUrl = parts.First();
+            var queryParams = new Dictionary<string, string>();
+
+            if (parts.Length > 1)
+            {
+                var existingParams = ParseQueryString(parts.Last());
+                foreach (var param in existingParams)
+                {
+                    queryParams.Add(param.Key, existingParams[param.Key].SingleOrDefault());
+                }
+            }
+
+            queryParams[Uri.EscapeUriString(paramName)] = paramValue; // TODO: Under what circumstance is it necessary to URI encode param value??
+
+            var url = queryParams.Count() == 0 ? relativeUrl :
+                relativeUrl + "?" + string.Join("&", queryParams.Select(q => q.Key + "=" + q.Value).ToList());
+            return new Uri(url, UriKind.Relative);
+        }
+
         /// <summary>
-        /// Splits a query string into its key/value pairs. 
+        /// Splits a query string into its key/value pairs.
         /// </summary>
         /// <param name="queryString">A query string, with or without the leading '?' character.</param>
         /// <returns>A collecktion with the parsed keys and values.</returns>
