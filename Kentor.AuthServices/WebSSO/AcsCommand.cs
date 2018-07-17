@@ -54,6 +54,14 @@ namespace Kentor.AuthServices.WebSso
                     var samlResponse = new Saml2Response(unbindResult.Data, request.StoredRequestState?.MessageId);
 
                     var result = ProcessResponse(options, samlResponse, request.StoredRequestState);
+
+                    // If IP-initiated then application path (if it exists) will have to be prepended to location
+                    if (request.StoredRequestState == null)
+                    {
+                        var path = PathHelper.UrlCombine(request.ApplicationUrl.AbsolutePath.ToString(), result.Location.ToString());
+                        result.Location = new Uri(path, UriKind.Relative);
+                    }
+
                     if (unbindResult.RelayState != null)
                     {
                         result.ClearCookieName = "Kentor." + unbindResult.RelayState;
