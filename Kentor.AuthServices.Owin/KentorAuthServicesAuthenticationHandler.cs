@@ -89,6 +89,11 @@ namespace Kentor.AuthServices.Owin
                 {
                     RedirectUri = redirectUrl.OriginalString
                 };
+
+                if (httpRequestData.RelayState != null)
+                {
+                    authProperties.RedirectUri = WebUtilities.AddQueryString(authProperties.RedirectUri, "ReturnUrl", httpRequestData.RelayState);
+                }
             }
 
             // The Google middleware adds this, so let's follow that example.
